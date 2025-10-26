@@ -31,6 +31,6 @@
 1. Clone the repository:
    ```bash
    git clone https://github.com/kambejat/LiWaMS.git
-   
-![Dashboard](assets/screenshots/dashboard.png)
+
+![Dashboard](src/assets/dashboard.png)
 
