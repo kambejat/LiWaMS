@@ -6,7 +6,7 @@ from models import Customer, Meter
 customer_bp = Blueprint("customers", __name__)
 
 @customer_bp.route("/", methods=["GET"])
-@jwt_required()
+# @jwt_required()
 def list_customers():    
     customers = Customer.query.all()
     return jsonify([{
@@ -20,7 +20,7 @@ def list_customers():
     } for c in customers])
 
 @customer_bp.route("/", methods=["POST"])
-@jwt_required()
+# @jwt_required()
 def create_customer():
     data = request.get_json() or {}
 

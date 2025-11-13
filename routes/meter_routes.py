@@ -7,7 +7,7 @@ from models import Meter, Customer
 meter_bp = Blueprint("meters", __name__)
 
 @meter_bp.route("/", methods=["POST"])
-@jwt_required()
+# @jwt_required()
 def add_meter():
     data = request.get_json()
     meter_no = data.get("meter_no")

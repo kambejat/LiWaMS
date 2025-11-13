@@ -134,3 +134,17 @@ class Receipt(db.Model):
     receipt_json = db.Column(db.JSON)
 
     payment = db.relationship("Payment", backref="receipt")
+
+# -------------------- AUDIT LOG --------------------
+class AuditLog(db.Model):
+    __tablename__ = "audit_logs"
+
+    id = db.Column(db.Integer, primary_key=True)
+    entity = db.Column(db.String(50))             # e.g. 'Reading', 'Bill'
+    entity_id = db.Column(db.Integer)
+    action = db.Column(db.String(50))             # e.g. 'CREATE', 'UPDATE', 'REJECT'
+    details = db.Column(db.JSON)
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    user = db.relationship("User", backref="audit_logs")
+    username = db.Column(db.String(120))          # keep a readable username copy
