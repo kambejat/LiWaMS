@@ -3,14 +3,7 @@ import api from "../api/axios";
 import Loader from "../components/Loader";
 import { useUser } from "../context/UserContext";
 import { buttons } from "../helper/helper";
-
-interface Bill {
-  id: number;
-  bill_no: string;
-  customer: string;
-  amount_due: number;
-  status: string;
-}
+import type { Bill, CustomerBillGroup } from "../types/billing";
 
 interface ReceiptData {
   receipt_no: string;
@@ -25,9 +18,9 @@ interface ReceiptData {
 }
 
 const Payments: React.FC = () => {
-  const [bills, setBills] = useState<Bill[]>([]);
+  const [bills, setBills] = useState<CustomerBillGroup[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [filteredBills, setFilteredBills] = useState<Bill[]>([]);
+  const [filteredBills, setFilteredBills] = useState<CustomerBillGroup[]>([]);
   const [loading, setLoading] = useState(false);
 
   const [billId, setBillId] = useState("");
@@ -41,29 +34,39 @@ const Payments: React.FC = () => {
 
   const { user } = useUser();
 
-  // Fetch all PAID bills
   const fetchBills = async () => {
-    try {
-      setLoading(true);
-      const config = {
-        headers: {
-          Authorization: `Bearer ${user?.token}`,
-        },
-      };
-      const res = await api.get("/billing/bills/", config);
-      const paidBills = res.data.filter((b: Bill) => b.status === "paid");
-      setBills(paidBills);
-      setFilteredBills(paidBills);
-    } catch (err) {
-      console.error("Error fetching bills:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  try {
+    setLoading(true);
+    const config = {
+      headers: { Authorization: `Bearer ${user?.token}` },
+    };
+    const res = await api.get("/billing/bills/", config);
 
-  useEffect(() => {
-    fetchBills();
-  }, []);
+    // Filter each group to include only PAID bills
+    const paidGroups: CustomerBillGroup[] = res.data
+      .map((group: CustomerBillGroup) => {
+        const paidBills = group.bills.filter((bill) => bill.status === "paid");
+        if (paidBills.length === 0) return null; // skip groups with no paid bills
+        return {
+          ...group,
+          bills: paidBills,
+          total_amount_due: paidBills.reduce((sum, bill) => sum + bill.amount_due, 0),
+        };
+      })
+      .filter((group: any) => group !== null) as CustomerBillGroup[];
+
+    setBills(paidGroups);
+    setFilteredBills(paidGroups);
+  } catch (err) {
+    console.error("Error fetching bills:", err);
+  } finally {
+    setLoading(false);
+  }
+};
+
+useEffect(() => {
+  fetchBills();
+}, []);
 
   // Debounced search for paid bills (bottom table)
   useEffect(() => {
@@ -75,7 +78,7 @@ const Payments: React.FC = () => {
         const results = bills.filter(
           (b) =>
             b.customer.toLowerCase().includes(lower) ||
-            b.bill_no.toLowerCase().includes(lower)
+            b.customer_id.toFixed().includes(lower)
         );
         setFilteredBills(results);
       }
@@ -120,9 +123,14 @@ const Payments: React.FC = () => {
     if (!selectedBill) return alert("Please enter a valid unpaid Bill ID.");
 
     try {
-      const username = user?.username
-      const payload = { bill_id: parseInt(billId, 10), amount, method, username};
-      console.log(payload)
+      const username = user?.username;
+      const payload = {
+        bill_id: parseInt(billId, 10),
+        amount,
+        method,
+        username,
+      };
+      console.log(payload);
       const config = {
         headers: { Authorization: `Bearer ${user?.token}` },
       };
@@ -149,7 +157,9 @@ const Payments: React.FC = () => {
             <p><strong>Receipt No:</strong> ${receipt.receipt_no}</p>
             <p><strong>Customer:</strong> ${receipt.receipt_data.customer}</p>
             <p><strong>Bill ID:</strong> ${receipt.receipt_data.bill_id}</p>
-            <p><strong>Amount Paid:</strong> ${receipt.receipt_data.amount_paid}</p>
+            <p><strong>Amount Paid:</strong> ${
+              receipt.receipt_data.amount_paid
+            }</p>
             <p><strong>Method:</strong> ${receipt.receipt_data.method}</p>
             <p><strong>Date:</strong> ${new Date(
               receipt.receipt_data.datetime
@@ -190,8 +200,11 @@ const Payments: React.FC = () => {
               <p>Amount Due: {selectedBill.amount_due.toFixed(2)}</p>
             </div>
           ) : (
-            billId && !billLoading && (
-              <p className="text-xs text-red-600 mt-1">Bill not found or already paid.</p>
+            billId &&
+            !billLoading && (
+              <p className="text-xs text-red-600 mt-1">
+                Bill not found or already paid.
+              </p>
             )
           )}
         </div>
@@ -213,7 +226,11 @@ const Payments: React.FC = () => {
           <option value="Card">Card</option>
           <option value="Mobile Money">Mobile Money</option>
         </select>
-        <button className={"bg-blue-700 text-white px-4 py-2 rounded hover:bg-blue-700"}>
+        <button
+          className={
+            "bg-blue-700 text-white px-4 py-2 rounded hover:bg-blue-700"
+          }
+        >
           Pay
         </button>
       </form>
@@ -274,16 +291,20 @@ const Payments: React.FC = () => {
             </thead>
             <tbody>
               {filteredBills.length > 0 ? (
-                filteredBills.map((b) => (
-                  <tr key={b.id} className="border-b hover:bg-gray-50">
-                    <td className="px-4 py-2">{b.id}</td>
-                    <td className="px-4 py-2">{b.customer}</td>
-                    <td className="px-4 py-2">{b.amount_due.toFixed(2)}</td>
-                    <td className="px-4 py-2 text-green-600 font-semibold uppercase">
-                      {b.status}
-                    </td>
-                  </tr>
-                ))
+                filteredBills.map((b) =>
+                  b.bills.map((bill) => (
+                    <tr key={bill.id} className="border-b hover:bg-gray-50">
+                      <td className="px-4 py-2">{bill.id}</td>
+                      <td className="px-4 py-2">{bill.customer}</td>
+                      <td className="px-4 py-2">
+                        {bill.amount_due.toFixed(2)}
+                      </td>
+                      <td className="px-4 py-2 text-green-600 font-semibold uppercase">
+                        {bill.status}
+                      </td>
+                    </tr>
+                  ))
+                )
               ) : (
                 <tr>
                   <td

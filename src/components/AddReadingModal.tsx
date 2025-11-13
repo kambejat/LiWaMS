@@ -83,6 +83,8 @@ const AddReadingModal: React.FC<AddReadingModalProps> = ({
       console.error(err);
     } finally {
       setLoading(false);
+      fetchBills()
+      onClose()
     }
   };
 
